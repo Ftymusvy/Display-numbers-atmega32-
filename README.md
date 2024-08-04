@@ -20,7 +20,8 @@
 
 نقشه مدار به صورت زیر است:
 
-![نقشه مدار](Screenshot%2024-07-26%180738.png)
+![نقشه مدار](https://github.com/Ftymusvy/Display-numbers-atmega32-/blob/main/Screenshot%202024-07-26%20180738.png)
+
 ## توضیح کد
 
 برنامه به زبان C نوشته شده و از AVR-GCC برای کامپایل و بارگذاری بر روی میکروکنترلر ATmega32 استفاده می‌کند. ویژگی‌های اصلی کد شامل موارد زیر است:
@@ -35,44 +36,58 @@
 
 ```c
 
+#define F_CPU 8000000UL  // Assuming an 8MHz clock frequency, adjust as needed
 
-// تعریف بایت‌های بخش
-const uint8_t segment_map[] = {
-    0b00111111, // 0
-    0b00000110, // 1
-    0b01011011, // 2
-    0b01001111, // 3
-    0b01100110, // 4
-    0b01101101, // 5
-    0b01111101, // 6
-    0b00000111, // 7
-    0b01111111, // 8
-    0b01101111  // 9
-};
+void displayNumber(uint8_t num) {
+	// Assuming common cathode seven-segment display
+	uint8_t seg[10] = {0x3F, 0x06, 0x5B, 0x4F, 0x66, 0x6D, 0x7D, 0x07, 0x7F, 0x6F};
+	PORTC = seg[num];
+}
 
-int main(void) {
-    uint8_t number = 0;
-    
-    // تنظیم بخش‌ها به عنوان خروجی
-    DDRC = 0xFF; // فرض بر این است که PORTC به سون سگمنت متصل است
-    // تنظیم پین دکمه به عنوان ورودی
-    DDRD &= ~(1 << PD2); // فرض بر این است که PD2 ورودی دکمه است
-    PORTD |= (1 << PD2); // فعال‌سازی مقاومت کششی روی PD2
+void displayAllSegments() {
+	PORTC = 0xFF;  // Display all segments (0xFF)
+	_delay_ms(1000);
+}
 
-    while (1) {
-        // بررسی فشار دکمه
-        if (!(PIND & (1 << PD2))) {
-            // تاخیر برای حذف نویز
-            _delay_ms(50);
-            // انتظار تا آزاد شدن دکمه
-            while (!(PIND & (1 << PD2)));
-            _delay_ms(50);
-            
-            // افزایش عدد
-            number++;
-            if (number > 9) {
-                number = 0;
-            }
+void turnOffSegmentsOneByOne() {
+	for (int i = 0; i < 8; i++) {
+		PORTC &= ~(1 << i);
+		_delay_ms(1000);
+	}
+}
+
+int main() {
+	DDRA &= ~(1 << PA0);  // Set PA0 as input
+	DDRC = 0xFF;          // Set PORTC as output
+
+	uint8_t a = 0;
+
+	// Display zero initially
+	displayNumber(a);
+
+	while (1) {
+		if (!(PINA & (1 << PA0))) { // Check if the button is pressed (low level)
+			// Increment the number and wrap around if needed
+			a = a + 1;
+			if (a > 9) {
+				a = 0;
+				displayAllSegments();  // Display all segments when the number is 9
+				turnOffSegmentsOneByOne();  // Turn off segments one by one after one second
+			}
+
+			// Display the updated number
+			displayNumber(a);
+
+			// Wait for a short time to avoid multiple increments
+			_delay_ms(200);
+
+			// Wait until the button is released to avoid multiple increments
+			while (!(PINA & (1 << PA0))) {
+				_delay_ms(50);
+			}	}
+	}
+
+	return 0;}
             
             // نمایش عدد
             PORTC = segment_map[number];
